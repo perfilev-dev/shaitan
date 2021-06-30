@@ -1106,6 +1106,7 @@ checksum = "db50e77ae196458ccd3dc58a31ea1a90b0698ab1b7928d89f644c25d72070267"
 [[package]]
 name = "protobuf"
 version = "3.0.0-pre"
+source = "git+https://github.com/Dixeran/rust-protobuf.git#74f302718c043d1eb80112e699fa451718bf14be"
 
 [[package]]
 name = "quote"
