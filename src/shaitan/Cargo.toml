@@ -1,0 +1,14 @@
+[package]
+name = "shaitan"
+version = "0.1.0"
+authors = ["perfilev <perfilev@perfilev>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zeromq = { version = "0.2.0", default-features = false, features = ["async-std-runtime"] }
+async-std = "*"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+shaitan-sdk = { path = "../shaitan-sdk" }

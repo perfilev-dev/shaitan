@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "src/shaitan",
+    "src/shaitan-sdk",
+    "src/shaitan-worker",
+    "src/plugins/rust/doc",
+    "src/plugins/rust/txt",
+    "src/scheduler",
+    "src/discover"
+]
