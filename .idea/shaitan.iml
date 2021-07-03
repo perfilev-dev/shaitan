@@ -12,10 +12,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src/shaitan-sdk/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/shaitan-worker/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/shaitan/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/plugins/rust/doc/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/plugins/rust/txt/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/scheduler/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/discover/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/services/rust/doc/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/services/rust/txt/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/worker/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

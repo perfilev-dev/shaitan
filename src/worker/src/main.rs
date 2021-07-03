@@ -99,14 +99,14 @@ impl Executor {
         let mut client = ServerReflectionClient::connect(address).await?;
         let (mut tx, rx) = mpsc::unbounded::<ServerReflectionRequest>();
 
-        let response = client.server_reflection_info(tonic::Request::new(rx)).await?;
-        let mut inbound = response.into_inner();
-
         // send list services
         tx.send(ServerReflectionRequest {
             host: String::new(),
             message_request: Some(MessageRequest::ListServices(String::new()))
         }).await?;
+
+        let response = client.server_reflection_info(tonic::Request::new(rx)).await?;
+        let mut inbound = response.into_inner();
 
         let mut services: Vec<String> = vec![];
         loop {
@@ -407,7 +407,7 @@ struct FieldTypeInfo {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let executor = Executor::connect("http://[::1]:50052".to_string()).await?;
+    let executor = Executor::connect("http://[::1]:50051".to_string()).await?;
 
     // print summary info about rpc services, enums, types...
     println!("INFO:\n{}", serde_json::to_string_pretty(&executor.info()?)?);

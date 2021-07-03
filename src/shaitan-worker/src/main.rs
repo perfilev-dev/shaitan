@@ -114,7 +114,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut plugins = Plugins::default();
 
-    // load plugins...
+    // load services...
     plugins.load();
 
     // create connections...
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
         .expect("Failed to connect");
 
-    // and send info about plugins loaded.
+    // and send info about services loaded.
     socket1.send(serde_json::to_string(&ServerCommand::Register(RegisterCommand {
         foo: "111".to_string()
     }))?.into()).await?;
