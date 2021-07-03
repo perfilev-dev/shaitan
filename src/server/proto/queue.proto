@@ -1,0 +1,74 @@
+syntax = "proto3";
+package shaitan.server;
+
+service Queue {
+  // registers a new worker on server.
+  rpc Register (ExecutorInfo) returns (Token);
+  // fetch a new task for worker (in JSON format)
+  rpc ProcessJson (stream ResultJson) returns (stream TaskJson);
+  // ... =/= ... (in raw protobuf)
+  rpc ProcessRaw (stream ResultRaw) returns (stream TaskRaw);
+}
+
+message ExecutorInfo {
+  repeated ServiceInfo services = 1;
+  repeated EnumTypeInfo enum_types = 2;
+  repeated MessageTypeInfo message_types = 3;
+}
+
+message ServiceInfo {
+  string name = 1;
+  repeated MethodInfo methods = 2;
+}
+
+message MethodInfo {
+  string name = 1;
+  string input_type_name = 2;
+  string output_type_name = 3;
+}
+
+message EnumTypeInfo {
+  string name = 1;
+  repeated EnumValueInfo values = 2;
+}
+
+message EnumValueInfo {
+  string name = 1;
+  int32 number = 2;
+}
+
+message MessageTypeInfo {
+  string name = 1;
+  repeated FieldTypeInfo fields = 2;
+}
+
+message FieldTypeInfo {
+  string name = 1;
+  bool optional = 2;
+  string type = 3;
+}
+
+// not for security, but for id!
+message Token {
+  string access_token = 1;
+}
+
+message TaskJson {
+  int32 task_id = 1;
+  string input = 2;
+}
+
+message TaskRaw {
+  int32 task_id = 1;
+  bytes input = 2;
+}
+
+message ResultJson {
+  int32 task_id = 1;
+  string output = 2;
+}
+
+message ResultRaw {
+  int32 task_id = 1;
+  bytes output = 2;
+}

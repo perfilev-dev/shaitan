@@ -406,28 +406,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "discover"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "base64",
- "futures 0.3.15",
- "futures-util",
- "lazy_static",
- "multiqueue",
- "prost",
- "prost-types",
- "protobuf 3.0.0-pre",
- "regex",
- "serde",
- "serde-protobuf",
- "serde_json",
- "tokio",
- "tonic",
- "tonic-build",
-]
-
-[[package]]
 name = "doc"
 version = "0.1.0"
 
@@ -1355,17 +1333,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
-name = "scheduler"
-version = "0.1.0"
-dependencies = [
- "prost",
- "tokio",
- "tonic",
- "tonic-build",
- "tonic-reflection",
-]
-
-[[package]]
 name = "schemars"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1448,6 +1415,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "tonic-reflection",
 ]
 
 [[package]]
@@ -2006,6 +1984,28 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "worker"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "base64",
+ "futures 0.3.15",
+ "futures-util",
+ "lazy_static",
+ "multiqueue",
+ "prost",
+ "prost-types",
+ "protobuf 3.0.0-pre",
+ "regex",
+ "serde",
+ "serde-protobuf",
+ "serde_json",
+ "tokio",
+ "tonic",
+ "tonic-build",
+]
 
 [[package]]
 name = "zeromq"

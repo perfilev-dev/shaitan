@@ -2,10 +2,10 @@ use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
 mod proto {
-    tonic::include_proto!("helloworld");
+    tonic::include_proto!("queue");
 
     pub(crate) const FILE_DESCRIPTOR_SET: &'static [u8] =
-        tonic::include_file_descriptor_set!("helloworld_descriptor");
+        tonic::include_file_descriptor_set!("queue_descriptor");
 }
 
 #[derive(Default)]
