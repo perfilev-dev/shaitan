@@ -15,6 +15,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/services/rust/doc/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/services/rust/txt/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/test1/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/worker/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

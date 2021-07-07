@@ -22,6 +22,14 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use regex::Regex;
 use std::str::FromStr;
+use tokio::time;
+use std::time::Duration;
+use tonic::transport::Channel;
+use tonic::metadata::MetadataValue;
+use futures::future::select_all;
+use futures::FutureExt;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 
 lazy_static::lazy_static! {
     // captures this: /helloworld.Greeter/SayHello
@@ -31,6 +39,10 @@ lazy_static::lazy_static! {
 
 pub mod reflection {
     tonic::include_proto!("grpc.reflection.v1alpha");
+}
+
+pub mod queue {
+    tonic::include_proto!("queue");
 }
 
 #[derive(Debug, Default)]
@@ -174,7 +186,7 @@ impl Executor {
         Err(MyError::Other("service not found".into()))
     }
 
-    fn method_info(&self, service_name: &str, method_name: &str) -> Result<MethodInfo, MyError> {
+    fn method_info(&self, service_name: &str, method_name: &str) -> Result<queue::MethodInfo, MyError> {
         let proto = self.protos
             .get(service_name)
             .ok_or(MyError::Other("proto not found".into()))?;
@@ -183,7 +195,7 @@ impl Executor {
             if service_name.ends_with(srv.get_name()) {
                 for method in &srv.method {
                     if method.get_name() == method_name {
-                        return Ok(MethodInfo {
+                        return Ok(queue::MethodInfo {
                             name: method.get_name().to_string(),
                             input_type_name: method.get_input_type().to_string(),
                             output_type_name: method.get_output_type().to_string()
@@ -196,18 +208,18 @@ impl Executor {
         Err(MyError::Other("service not found".into()))
     }
 
-    fn enum_types(&self) -> Vec<EnumTypeInfo> {
+    fn enum_types(&self) -> Vec<queue::EnumTypeInfo> {
         let mut enum_types = vec![];
 
         for proto in self.protos.values() {
             for enum_type in &proto.enum_type {
-                let mut info = EnumTypeInfo {
+                let mut info = queue::EnumTypeInfo {
                     name: enum_type.get_name().to_string(),
                     values: vec![]
                 };
 
                 for value in &enum_type.value {
-                    info.values.push(EnumValueInfo {
+                    info.values.push(queue::EnumValueInfo {
                         name: value.get_name().to_string(),
                         number: value.get_number()
                     })
@@ -220,21 +232,21 @@ impl Executor {
         enum_types
     }
 
-    fn message_types(&self) -> Vec<MessageTypeInfo> {
+    fn message_types(&self) -> Vec<queue::MessageTypeInfo> {
         let mut message_types = vec![];
 
         for proto in self.protos.values() {
             for message_type in &proto.message_type {
-                let mut info = MessageTypeInfo {
+                let mut info = queue::MessageTypeInfo {
                     name: message_type.get_name().to_string(),
                     fields: vec![]
                 };
 
                 for field in &message_type.field {
-                    info.fields.push(FieldTypeInfo {
+                    info.fields.push(queue::FieldTypeInfo {
                         name: field.get_json_name().to_string(),
                         optional: field.get_proto3_optional(),
-                        type_: (match field.get_field_type() {
+                        r#type: (match field.get_field_type() {
                             Type::TYPE_DOUBLE => "double",
                             Type::TYPE_FLOAT => "float",
                             Type::TYPE_INT64 => "int64",
@@ -264,15 +276,15 @@ impl Executor {
         message_types
     }
 
-    fn info(&self) -> Result<ExecutorInfo, MyError> {
-        let mut info = ExecutorInfo {
+    fn info(&self) -> Result<queue::ExecutorInfo, MyError> {
+        let mut info = queue::ExecutorInfo {
             services: vec![],
             enum_types: self.enum_types(),
             message_types: self.message_types()
         };
 
         for service_name in &self.services() {
-            let mut service_info = ServiceInfo {
+            let mut service_info = queue::ServiceInfo {
                 name: service_name.to_string(),
                 methods: vec![]
             };
@@ -314,18 +326,19 @@ impl Executor {
         None
     }
 
-    async fn unary_json(&self, path: &str, value: &Value) -> Result<Value, Box<dyn Error>> {
-        let json_str = serde_json::to_string(value)?;
+    async fn unary_json(&self, path: String, json_str: String, task_id: u32) -> (Result<Value, Box<dyn Error>>, u32) {
+        (self._unary_json(path, json_str).await, task_id)
+    }
 
-        // parse request
-        let caps = PATH_RE.captures(path)
+    async fn _unary_json(&self, path: String, json_str: String) -> Result<Value, Box<dyn Error>> {
+        let caps = PATH_RE.captures(&path)
             .ok_or(MyError::Other("wrong service path".to_string()))?;
 
         // find method and types (input, output)
         let method = self.get_method(&caps["service"], &caps["method"])?;
         let input_type = self.get_message_by_type_name(method.get_input_type())
             .ok_or(MyError::Other("input type not found!".to_string()))?;
-        let output_type = self.get_message_by_type_name(method.get_input_type())
+        let output_type = self.get_message_by_type_name(method.get_output_type())
             .ok_or(MyError::Other("output type not found!".to_string()))?;
 
         // create input message
@@ -341,7 +354,7 @@ impl Executor {
         grpc.ready().await?;
 
         let codec: ProstCodec<RawBytes, RawBytes> = tonic::codec::ProstCodec::default();
-        let path = http::uri::PathAndQuery::from_str(path).unwrap();
+        let path = http::uri::PathAndQuery::from_str(&path).unwrap();
 
         // make request and got response...
         let result: tonic::Response<RawBytes> = grpc.unary(request.into_request(), path, codec).await?;
@@ -358,49 +371,85 @@ impl Executor {
 
 }
 
-#[derive(Debug, Serialize)]
-struct ExecutorInfo {
-    services: Vec<ServiceInfo>,
-    enum_types: Vec<EnumTypeInfo>,
-    message_types: Vec<MessageTypeInfo>
-}
 
-#[derive(Debug, Serialize)]
-struct ServiceInfo {
-    name: String,
-    methods: Vec<MethodInfo>
-}
+/// ----
 
-#[derive(Debug, Serialize)]
-struct MethodInfo {
-    name: String,
-    input_type_name: String,
-    output_type_name: String
-}
+async fn queue_forever(client: &mut queue::queue_client::QueueClient<Channel>, access_token: &str, executor: &Executor) -> Result<(), Box<dyn Error>> {
+    let (mut tx, rx) = mpsc::channel(10);
 
-#[derive(Debug, Serialize)]
-struct EnumTypeInfo {
-    name: String,
-    values: Vec<EnumValueInfo>
-}
+    let mut request = Request::new(rx);
+    request.metadata_mut().insert("access_token", MetadataValue::from_str(access_token)?);
 
-#[derive(Debug, Serialize)]
-struct EnumValueInfo {
-    name: String,
-    number: i32
-}
+    let response = client.process_json(request).await?;
+    let mut inbound = response.into_inner();
 
-#[derive(Debug, Serialize)]
-struct MessageTypeInfo {
-    name: String,
-    fields: Vec<FieldTypeInfo>
-}
+    let mut future_results = FuturesUnordered::new();
+    loop {
+        if future_results.is_empty() {
+            tokio::select! {
+                task_result = inbound.message() => {
+                    if let Ok(task) = task_result {
+                        match task {
+                            Some(t) => {
+                                println!("new task! {:?}", t);
+                                let fut = executor.unary_json(format!("/{}", t.method), t.input, t.task_id);
+                                future_results.push(fut.boxed());
+                            },
+                            None => {
+                                println!("no task");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            tokio::select! {
+                task_result = inbound.message() => {
+                    if let Ok(task) = task_result {
+                        match task {
+                            Some(t) => {
+                                println!("new task! {:?}", t);
+                                let fut = executor.unary_json(format!("/{}", t.method), t.input, t.task_id);
+                                future_results.push(fut.boxed());
+                            },
+                            None => {
+                                println!("no task");
+                            }
+                        }
+                    }
+                },
+                result = future_results.next() => {
+                    println!("result: {:?}", result);
 
-#[derive(Debug, Serialize)]
-struct FieldTypeInfo {
-    name: String,
-    optional: bool,
-    type_: String
+                    match result {
+                        Some((r, task_id)) => {
+                            let mut result = queue::ResultJson::default();
+                            result.task_id = task_id;
+
+                            match r {
+                                Ok(output) => {
+                                    result.r = Some(queue::result_json::R::Output(serde_json::to_string(&output)?));
+                                },
+                                Err(err) => {
+                                    result.r = Some(queue::result_json::R::Error(err.to_string()));
+                                }
+                            }
+
+                            tx.send(result).await?;
+                        }
+                        None => {
+                            println!("no result?");
+                        }
+                    }
+
+
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 
@@ -409,14 +458,28 @@ struct FieldTypeInfo {
 async fn main() -> Result<(), Box<dyn Error>> {
     let executor = Executor::connect("http://[::1]:50051".to_string()).await?;
 
+    // get executor info in grpc format!
+    let info = executor.info()?;
+
     // print summary info about rpc services, enums, types...
-    println!("INFO:\n{}", serde_json::to_string_pretty(&executor.info()?)?);
+    // println!("INFO:\n{}", serde_json::to_string_pretty(&executor.info()?)?);
+    //
+    // let result = executor.unary_json("/helloworld.Greeter/SayHello", &json!({
+    //     "name": "Sergey"
+    // })).await?;
+    //
+    // println!("{:?}", result);
 
-    let result = executor.unary_json("/helloworld.Greeter/SayHello", &json!({
-        "name": "Sergey"
-    })).await?;
+    /// ------------ SERVER -------------
 
-    println!("{:?}", result);
+    let mut client = queue::queue_client::QueueClient::connect("http://[::1]:50052").await?;
+
+    // register client and get token!
+    let response = client.register(info).await?;
+    let access_token = response.get_ref().access_token.to_string();
+
+    // then fetch tasks
+    queue_forever(&mut client, &access_token, &executor).await?;
 
     Ok(())
 }

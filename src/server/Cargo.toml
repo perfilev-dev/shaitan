@@ -11,6 +11,12 @@ tonic = "0.4"
 tonic-reflection = "*"
 prost = "0.7"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio-stream = "*"
+futures = "0.3.15"
+lazy_static = "1.4.0"
+async-channel = "*"
+futures-util = "0.3.15"
+async-stream = "*"
 
 [build-dependencies]
 tonic-build = "0.4"

@@ -1421,8 +1421,14 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
+ "async-stream",
+ "futures 0.3.15",
+ "futures-util",
+ "lazy_static",
  "prost",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
  "tonic-reflection",
