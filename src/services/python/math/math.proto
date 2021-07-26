@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package math;
+
+// The simple math service definition.
+service SimpleMath {
+  // 3*x
+  rpc Mul3 (Number) returns (Number);
+  // y+2
+  rpc Add2 (Number) returns (Number);
+}
+
+message Number {
+  int32 value = 1;
+}

@@ -1,3 +1,6 @@
+mod engine;
+mod pipelines;
+
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::time::Duration;
@@ -13,9 +16,12 @@ use tokio_stream::StreamExt;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use tonic::metadata::MetadataValue;
+use crate::engine::Engine;
+use std::fmt::Formatter;
+use crate::pipelines::InnerJob::Pipeline;
 
 
-mod proto {
+pub mod proto {
     tonic::include_proto!("queue");
 
     pub(crate) const FILE_DESCRIPTOR_SET: &'static [u8] =
@@ -24,6 +30,7 @@ mod proto {
 
 type QueueType = Mutex<HashMap<String, (Sender<proto::TaskJson>, Receiver<proto::TaskJson>)>>;
 type MethodsType = Mutex<HashMap<String, Vec<String>>>;
+type PipelineQueue = Mutex<HashMap<u32, Sender<proto::ResultJson>>>;
 
 lazy_static::lazy_static! {
 
@@ -36,6 +43,47 @@ lazy_static::lazy_static! {
     static ref WORKERS_METHODS: MethodsType = MethodsType::default();
     static ref WORKERS_COUNTER: AtomicU32 = AtomicU32::new(0);
 
+    // pipelines
+    static ref TASK_PIPELINE_MAP: Mutex<HashMap<u32, u32>> = Mutex::<HashMap::<u32, u32>>::default();
+    static ref PIPELINES_COUNTER: AtomicU32 = AtomicU32::new(0);
+    static ref PIPELINES_QUEUE: PipelineQueue = PipelineQueue::default();
+
+}
+
+pub async fn schedule_task(method: &str, input: &str) -> Result<u32, Box<dyn std::error::Error>> {
+    let sender = JSON_TASKS.lock().await
+        .get(method)
+        .map(|(sender, _)| sender.clone())
+        .ok_or(format!("method {} not found", method))?;
+
+    let task_id = TASKS_COUNTER.fetch_add(1, Ordering::AcqRel);
+
+    sender.send(proto::TaskJson {
+        method: method.to_string(),
+        input: input.to_string(),
+        task_id
+    }).await?;
+
+    Ok(task_id)
+}
+
+pub async fn get_pipeline_queue() -> (u32, Receiver<proto::ResultJson>) {
+    let pipeline_id = PIPELINES_COUNTER.fetch_add(1, Ordering::AcqRel);
+
+    let (tx, rx) = async_channel::bounded(10);
+
+    PIPELINES_QUEUE.lock().await.insert(pipeline_id, tx);
+
+    (pipeline_id, rx)
+}
+
+pub async fn schedule_pipeline_task(pipeline_id: u32, method: &str, input: &str) -> Result<u32, Box<dyn std::error::Error>> {
+    let task_id = schedule_task(method, input).await?;
+
+    // remember pipeline to send result back!
+    TASK_PIPELINE_MAP.lock().await.insert(task_id, pipeline_id);
+
+    Ok(task_id)
 }
 
 #[derive(Default)]
@@ -117,6 +165,17 @@ impl proto::queue_server::Queue for MyQueue {
                             match res {
                                 Ok(r) => {
                                     println!("got result! {:?}", result);
+
+                                    // is it pipeline task? is so, push it to right queue!
+                                    if let Some(id) = TASK_PIPELINE_MAP.lock().await.get(&r.task_id) {
+                                        let tx = PIPELINES_QUEUE.lock().await
+                                            .get(id)
+                                            .map(|x| x.clone())
+                                            .unwrap();
+
+                                        tx.send(r.clone()).await.unwrap();
+                                    }
+
                                 },
                                 Err(err) => {
                                     println!("error: {:?}", err);
@@ -158,25 +217,23 @@ impl proto::queue_server::Queue for MyQueue {
         &self,
         request: Request<proto::NewTaskJson>,
     ) -> Result<Response<proto::ScheduledTask>, Status> {
-        let sender = JSON_TASKS.lock().await
-            .get(&request.get_ref().method)
-            .map(|(sender, _)| sender.clone());
+        Ok(Response::new(proto::ScheduledTask {
+            task_id: schedule_task(&request.get_ref().method, &request.get_ref().input).await
+                .map_err(|err| Status::internal(err.to_string()))?
+        }))
+    }
 
-        if sender.is_none() {
-            return Err(Status::not_found(format!("method {} not found", request.get_ref().method)));
-        }
+    async fn send_input_to_pipeline(
+        &self,
+        request: Request<proto::PipelineInput>,
+    ) -> Result<Response<proto::SendResult>, Status> {
 
-        let scheduled = proto::ScheduledTask {
-            task_id: TASKS_COUNTER.fetch_add(1, Ordering::AcqRel)
-        };
+        // just to test =)
+        pipelines::test().await;
 
-        sender.unwrap().send(proto::TaskJson {
-            task_id: scheduled.task_id,
-            method: request.get_ref().method.to_string(),
-            input: request.get_ref().input.to_string()
-        }).await.map_err(|x| Status::internal("can't push"))?;
-
-        Ok(Response::new(scheduled))
+        Ok(Response::new(proto::SendResult {
+            status: "ok".to_string()
+        }))
     }
 }
 
@@ -189,6 +246,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = "[::1]:50052".parse().unwrap();
     let queue = MyQueue::default();
+
+    // pipelines::test().await;
 
     Server::builder()
         .add_service(service)

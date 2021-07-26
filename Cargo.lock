@@ -35,6 +35,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-broadcast"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "186fa9af996163d0d446775d084df32f2f5b195bcfebb0d49d0bf18e2eec528c"
+dependencies = [
+ "easy-parallel",
+ "event-listener",
+ "futures-core",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -414,6 +425,12 @@ name = "dyn-clone"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2626afccd7561a06cf1367e2950c4718ea04565e20fb5029b6c7d8ad09abcf"
+
+[[package]]
+name = "easy-parallel"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dd4afd79212583ff429b913ad6605242ed7eec277e950b1438f300748f948f4"
 
 [[package]]
 name = "either"
@@ -1421,7 +1438,9 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
  "async-channel",
+ "async-std",
  "async-stream",
  "futures 0.3.15",
  "futures-util",

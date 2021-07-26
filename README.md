@@ -294,6 +294,11 @@ generate_file_reports:
       accepts: input
     process_package:
       accepts: watch_task.result
+    update_passwords:
+      accepts: process_package.result
+      data: 
+        read: passwords
+        write: passwords
     output:
       accepts: process_package.result
       streaming: yes
@@ -307,6 +312,9 @@ bruteforce_password:
   jobs:
     generate_passwords:
       accepts: input
+      method: Utils.GeneratePasswords
+      data:
+        read: passwords
     join_file_password:
       join_map:
         output_type: CheckPasswordParameters
@@ -315,6 +323,7 @@ bruteforce_password:
           password: {{ generate_passwords.result }}
     check_password:
       accepts: join_file_password.result
+      method: {{ executor }}.CheckPassword
     output:
       accepts: check_password.result
       when: check_password.result.valid
@@ -359,3 +368,58 @@ input _______ password1 ___ input + password1 ___ false
         ___ password not found ___ output!
 ```
 
+Наконец, пайплайн обработки пакета - `process_package`:
+
+```yml
+process_package:
+  executors:
+    - Exe
+    - Doc
+    - Pdf
+  jobs:
+    check_if_suitable:
+      accepts: input
+      method: {{ executor }}.CheckSuitable
+    check_if_encrypted:
+      accepts: input
+      method: {{ executor }}.CheckEncrypted
+      when: check_if_suitable.result
+    bruteforce_password:
+      accepts: input
+      when: check_if_encrypted.result
+    join_file_password:
+      join:
+        output_type: CheckPasswordParameters
+        map:
+          path: {{ input.path }}
+          password: {{ bruteforce_password.result.password }}
+      when: bruteforce_password.result
+    decrypt:
+      accepts: join_file_password.result
+    get_summary:
+      accepts: input
+      when: check_if_suitable.result and not decrypt.result
+    get_summary_decrypted:
+      accepts: decrypt.result
+    output:
+      accepts:
+        - get_summary.result
+        - get_summary_decrypted.result
+```
+
+Визуализация:
+
+```text
+input ___ Exe ___ ...
+|
+|________ Doc ___ ...
+|
+|________ Pdf ___ is_suitable ___ is_encrypted ___ password! ___ decrypted ___ summary 
+```
+
+Какие еще есть нерешенные вопросы?
+
+* иногда нужно передавать контекст, для read-only это делать легко через trailers;
+* `data` в качестве простого контекстного key-value хранилища для начала;
+* `cache`: size, ttl?
+* какая-то обработка ошибок?

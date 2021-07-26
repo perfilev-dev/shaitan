@@ -10,6 +10,8 @@ service Queue {
   rpc ProcessRaw (stream ResultRaw) returns (stream TaskRaw);
   // add new task to a queue
   rpc ScheduleTask (NewTaskJson) returns (ScheduledTask);
+  // send input to a pipeline
+  rpc SendInputToPipeline (PipelineInput) returns (SendResult);
 }
 
 message ExecutorInfo {
@@ -90,4 +92,13 @@ message NewTaskJson {
 
 message ScheduledTask {
   uint32 task_id = 1;
+}
+
+message PipelineInput {
+  string pipeline = 1;
+  string input = 2;
+}
+
+message SendResult {
+  string status = 1;
 }
