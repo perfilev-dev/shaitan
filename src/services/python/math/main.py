@@ -7,6 +7,8 @@ import math_pb2_grpc
 
 from concurrent import futures
 import logging
+import random
+import time
 
 
 class SimpleMath(math_pb2_grpc.SimpleMathServicer):
@@ -16,6 +18,11 @@ class SimpleMath(math_pb2_grpc.SimpleMathServicer):
 
     def Add2(self, request, context):
         return math_pb2.Number(value=request.value+2)
+
+    def RandomEverySecond(self, request, context):
+        while True:
+            yield math_pb2.Number(value=random.randint(0, 100))
+            time.sleep(1)
 
 
 def serve():

@@ -25,6 +25,11 @@ class SimpleMathStub(object):
                 request_serializer=math__pb2.Number.SerializeToString,
                 response_deserializer=math__pb2.Number.FromString,
                 )
+        self.RandomEverySecond = channel.unary_stream(
+                '/math.SimpleMath/RandomEverySecond',
+                request_serializer=math__pb2.Empty.SerializeToString,
+                response_deserializer=math__pb2.Number.FromString,
+                )
 
 
 class SimpleMathServicer(object):
@@ -45,6 +50,13 @@ class SimpleMathServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RandomEverySecond(self, request, context):
+        """random every 1 second
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SimpleMathServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -56,6 +68,11 @@ def add_SimpleMathServicer_to_server(servicer, server):
             'Add2': grpc.unary_unary_rpc_method_handler(
                     servicer.Add2,
                     request_deserializer=math__pb2.Number.FromString,
+                    response_serializer=math__pb2.Number.SerializeToString,
+            ),
+            'RandomEverySecond': grpc.unary_stream_rpc_method_handler(
+                    servicer.RandomEverySecond,
+                    request_deserializer=math__pb2.Empty.FromString,
                     response_serializer=math__pb2.Number.SerializeToString,
             ),
     }
@@ -99,6 +116,23 @@ class SimpleMath(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/math.SimpleMath/Add2',
             math__pb2.Number.SerializeToString,
+            math__pb2.Number.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RandomEverySecond(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/math.SimpleMath/RandomEverySecond',
+            math__pb2.Empty.SerializeToString,
             math__pb2.Number.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

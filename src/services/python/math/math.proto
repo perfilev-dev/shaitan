@@ -8,7 +8,11 @@ service SimpleMath {
   rpc Mul3 (Number) returns (Number);
   // y+2
   rpc Add2 (Number) returns (Number);
+  // random every 1 second
+  rpc RandomEverySecond (Empty) returns (stream Number);
 }
+
+message Empty {};
 
 message Number {
   int32 value = 1;

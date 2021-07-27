@@ -123,14 +123,6 @@ impl Pipeline {
                         let job = &pipeline.jobs[job_index];
                         println!("job {} got {:?}", job.name, job_accept);
 
-                        // if job.name == "3*x" {
-                        //     job.output_tx.broadcast(3*(job_accept.unwrap())).await.unwrap();
-                        // }
-                        //
-                        // if job.name == "y+2" {
-                        //     job.output_tx.broadcast(2+job_accept.unwrap()).await.unwrap();
-                        // }
-
                         // output is specific job!
                         if job.name == "output" {
                             pipeline.output_tx.broadcast(job_accept.unwrap()).await.unwrap();

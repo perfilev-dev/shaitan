@@ -7,26 +7,22 @@ use protobuf::Message;
 use protobuf::reflect::{FileDescriptor, MessageDescriptor};
 use protobuf::json::{parse_dynamic_from_str, print_to_string};
 use tonic::codegen::http;
-use tonic::{IntoRequest, Request};
+use tonic::{IntoRequest, Request, Streaming};
 use prost::bytes::{Buf, BufMut};
 use prost::DecodeError;
 use prost::encoding::{WireType, DecodeContext};
 use tonic::codec::ProstCodec;
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{SinkExt, Stream};
 use std::error::Error;
 use std::fmt::Formatter;
 use std::collections::HashMap;
 use protobuf::descriptor::field_descriptor_proto::Type;
-use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use regex::Regex;
 use std::str::FromStr;
-use tokio::time;
-use std::time::Duration;
 use tonic::transport::Channel;
 use tonic::metadata::MetadataValue;
-use futures::future::select_all;
 use futures::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -326,8 +322,59 @@ impl Executor {
         None
     }
 
+    // async fn server_streaming(&self, path: String, json_str: String, task_id: u32) -> (Result<Streaming<RawBytes>, Box<dyn Error>>, u32) {
+    //     (self._server_streaming(path, json_str).await, task_id)
+    // }
+
     async fn unary_json(&self, path: String, json_str: String, task_id: u32) -> (Result<Value, Box<dyn Error>>, u32) {
         (self._unary_json(path, json_str).await, task_id)
+    }
+
+    async fn _server_streaming(&self, path: String, json_str: String) -> Result<impl Stream<Item = Result<Value, Box<dyn Error>>>, Box<dyn Error>> {
+        let caps = PATH_RE.captures(&path)
+            .ok_or(MyError::Other("wrong service path".to_string()))?;
+
+        // find method and types (input, output)
+        let method = self.get_method(&caps["service"], &caps["method"])?;
+        let input_type = self.get_message_by_type_name(method.get_input_type())
+            .ok_or(MyError::Other("input type not found!".to_string()))?;
+        let output_type = self.get_message_by_type_name(method.get_output_type())
+            .ok_or(MyError::Other("output type not found!".to_string()))?;
+
+        // create input message
+        let input = parse_dynamic_from_str(&input_type, &json_str)?;
+
+        let request: Request<RawBytes> = tonic::Request::new(RawBytes {
+            bytes: input.write_to_bytes_dyn()?
+        });
+
+        // connect!
+        let conn = tonic::transport::Endpoint::new(self.address.to_string())?.connect().await?;
+        let mut grpc = tonic::client::Grpc::new(conn);
+        grpc.ready().await?;
+
+        let codec: ProstCodec<RawBytes, RawBytes> = tonic::codec::ProstCodec::default();
+        let path = http::uri::PathAndQuery::from_str(&path).unwrap();
+
+        // make request and got response...
+        let response: tonic::Response<Streaming<RawBytes>> = grpc.server_streaming(request.into_request(), path, codec).await?;
+        let mut inbound = response.into_inner();
+
+        Ok(async_stream::stream! {
+
+            while let Some(raw) = inbound.message().await? {
+                let mut output = raw.bytes.clone();
+
+                // wtf is this? but it work!
+                output.insert(0, 10);
+
+                let mut out = output_type.new_instance();
+                out.merge_from_bytes_dyn(&output)?;
+
+                yield Ok(serde_json::from_str(&print_to_string(&*out).unwrap()).unwrap());
+            }
+
+        })
     }
 
     async fn _unary_json(&self, path: String, json_str: String) -> Result<Value, Box<dyn Error>> {
@@ -448,8 +495,6 @@ async fn queue_forever(client: &mut queue::queue_client::QueueClient<Channel>, a
             }
         }
     }
-
-    Ok(())
 }
 
 
@@ -470,7 +515,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //
     // println!("{:?}", result);
 
-    /// ------------ SERVER -------------
+    // let mut result = executor._server_streaming("/math.SimpleMath/RandomEverySecond".to_string(), serde_json::json!({
+    //
+    // }).to_string()).await?;
+    //
+    // futures::pin_mut!(result);
+    //
+    // while let Some(value) = result.next().await {
+    //     println!("got {:?}", value);
+    // }
+
+    // ------------ SERVER -------------
 
     let mut client = queue::queue_client::QueueClient::connect("http://[::1]:50052").await?;
 

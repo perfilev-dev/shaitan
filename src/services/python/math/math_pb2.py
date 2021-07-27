@@ -19,10 +19,35 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\nmath.proto\x12\x04math\"\x17\n\x06Number\x12\r\n\x05value\x18\x01 \x01(\x05\x32T\n\nSimpleMath\x12\"\n\x04Mul3\x12\x0c.math.Number\x1a\x0c.math.Number\x12\"\n\x04\x41\x64\x64\x32\x12\x0c.math.Number\x1a\x0c.math.Numberb\x06proto3'
+  serialized_pb=b'\n\nmath.proto\x12\x04math\"\x07\n\x05\x45mpty\"\x17\n\x06Number\x12\r\n\x05value\x18\x01 \x01(\x05\x32\x86\x01\n\nSimpleMath\x12\"\n\x04Mul3\x12\x0c.math.Number\x1a\x0c.math.Number\x12\"\n\x04\x41\x64\x64\x32\x12\x0c.math.Number\x1a\x0c.math.Number\x12\x30\n\x11RandomEverySecond\x12\x0b.math.Empty\x1a\x0c.math.Number0\x01\x62\x06proto3'
 )
 
 
+
+
+_EMPTY = _descriptor.Descriptor(
+  name='Empty',
+  full_name='math.Empty',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=20,
+  serialized_end=27,
+)
 
 
 _NUMBER = _descriptor.Descriptor(
@@ -52,12 +77,20 @@ _NUMBER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20,
-  serialized_end=43,
+  serialized_start=29,
+  serialized_end=52,
 )
 
+DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 DESCRIPTOR.message_types_by_name['Number'] = _NUMBER
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), {
+  'DESCRIPTOR' : _EMPTY,
+  '__module__' : 'math_pb2'
+  # @@protoc_insertion_point(class_scope:math.Empty)
+  })
+_sym_db.RegisterMessage(Empty)
 
 Number = _reflection.GeneratedProtocolMessageType('Number', (_message.Message,), {
   'DESCRIPTOR' : _NUMBER,
@@ -75,8 +108,8 @@ _SIMPLEMATH = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=45,
-  serialized_end=129,
+  serialized_start=55,
+  serialized_end=189,
   methods=[
   _descriptor.MethodDescriptor(
     name='Mul3',
@@ -94,6 +127,16 @@ _SIMPLEMATH = _descriptor.ServiceDescriptor(
     index=1,
     containing_service=None,
     input_type=_NUMBER,
+    output_type=_NUMBER,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='RandomEverySecond',
+    full_name='math.SimpleMath.RandomEverySecond',
+    index=2,
+    containing_service=None,
+    input_type=_EMPTY,
     output_type=_NUMBER,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
