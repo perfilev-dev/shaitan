@@ -194,7 +194,8 @@ impl Executor {
                         return Ok(queue::MethodInfo {
                             name: method.get_name().to_string(),
                             input_type_name: method.get_input_type().to_string(),
-                            output_type_name: method.get_output_type().to_string()
+                            output_type_name: method.get_output_type().to_string(),
+                            server_streaming: method.has_server_streaming()
                         });
                     }
                 }
@@ -507,7 +508,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let info = executor.info()?;
 
     // print summary info about rpc services, enums, types...
-    // println!("INFO:\n{}", serde_json::to_string_pretty(&executor.info()?)?);
+    println!("INFO:\n{:?}", &executor.info()?);
     //
     // let result = executor.unary_json("/helloworld.Greeter/SayHello", &json!({
     //     "name": "Sergey"

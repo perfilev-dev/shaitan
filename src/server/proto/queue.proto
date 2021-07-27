@@ -29,6 +29,7 @@ message MethodInfo {
   string name = 1;
   string input_type_name = 2;
   string output_type_name = 3;
+  bool server_streaming = 4;
 }
 
 message EnumTypeInfo {
