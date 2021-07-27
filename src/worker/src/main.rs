@@ -323,15 +323,15 @@ impl Executor {
         None
     }
 
-    // async fn server_streaming(&self, path: String, json_str: String, task_id: u32) -> (Result<Streaming<RawBytes>, Box<dyn Error>>, u32) {
-    //     (self._server_streaming(path, json_str).await, task_id)
-    // }
+    async fn server_streaming(&self, path: String, json_str: String, task_id: u32) -> (Result<Streaming<RawBytes>, Box<dyn Error>>, u32) {
+        (self._server_streaming(path, json_str).await, task_id)
+    }
 
     async fn unary_json(&self, path: String, json_str: String, task_id: u32) -> (Result<Value, Box<dyn Error>>, u32) {
         (self._unary_json(path, json_str).await, task_id)
     }
 
-    async fn _server_streaming(&self, path: String, json_str: String) -> Result<impl Stream<Item = Result<Value, Box<dyn Error>>>, Box<dyn Error>> {
+    async fn _server_streaming(&self, path: String, json_str: String) -> Result<Streaming<RawBytes>, Box<dyn Error>> {
         let caps = PATH_RE.captures(&path)
             .ok_or(MyError::Other("wrong service path".to_string()))?;
 
@@ -361,21 +361,7 @@ impl Executor {
         let response: tonic::Response<Streaming<RawBytes>> = grpc.server_streaming(request.into_request(), path, codec).await?;
         let mut inbound = response.into_inner();
 
-        Ok(async_stream::stream! {
-
-            while let Some(raw) = inbound.message().await? {
-                let mut output = raw.bytes.clone();
-
-                // wtf is this? but it work!
-                output.insert(0, 10);
-
-                let mut out = output_type.new_instance();
-                out.merge_from_bytes_dyn(&output)?;
-
-                yield Ok(serde_json::from_str(&print_to_string(&*out).unwrap()).unwrap());
-            }
-
-        })
+        Ok(inbound)
     }
 
     async fn _unary_json(&self, path: String, json_str: String) -> Result<Value, Box<dyn Error>> {
@@ -432,8 +418,40 @@ async fn queue_forever(client: &mut queue::queue_client::QueueClient<Channel>, a
     let mut inbound = response.into_inner();
 
     let mut future_results = FuturesUnordered::new();
+    let mut futures_streams = FuturesUnordered::new();
+    let mut select_all_streams = futures::stream::select_all(vec![]);
+
     loop {
-        if future_results.is_empty() {
+        if future_results.is_empty() && futures_streams.is_empty() {
+            tokio::select! {
+                task_result = inbound.message() => {
+                    if let Ok(task) = task_result {
+                        match task {
+                            Some(t) => {
+                                println!("new task! {:?}", t);
+
+                                if t.method.ends_with("Second") {
+                                    let fut = executor.server_streaming(format!("/{}", t.method), t.input, t.task_id);
+                                    futures_streams.push(fut.boxed());
+                                } else {
+                                    let fut = executor.unary_json(format!("/{}", t.method), t.input, t.task_id);
+                                    future_results.push(fut.boxed());
+                                }
+                            },
+                            None => {
+                                println!("no task");
+                            }
+                        }
+                    }
+                },
+                s = select_all_streams.next() => {
+                    if let Some(a) = s {
+                        println!("smth new? {:?}", a);
+                    }
+                }
+            }
+        }
+        else if !futures_streams.is_empty() {
             tokio::select! {
                 task_result = inbound.message() => {
                     if let Ok(task) = task_result {
@@ -448,6 +466,16 @@ async fn queue_forever(client: &mut queue::queue_client::QueueClient<Channel>, a
                             }
                         }
                     }
+                },
+                result = futures_streams.next() => {
+                    println!("stream!!");
+
+                    if let Some((r, task_id)) = result {
+                        if let Ok(s) = r {
+                            select_all_streams.push(s);
+                        }
+                    }
+
                 }
             }
         }
@@ -508,7 +536,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let info = executor.info()?;
 
     // print summary info about rpc services, enums, types...
-    println!("INFO:\n{:?}", &executor.info()?);
+    // println!("INFO:\n{:?}", &executor.info()?);
     //
     // let result = executor.unary_json("/helloworld.Greeter/SayHello", &json!({
     //     "name": "Sergey"
